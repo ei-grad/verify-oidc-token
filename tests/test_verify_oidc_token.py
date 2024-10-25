@@ -1,11 +1,23 @@
+import sys
 import unittest
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import jwt
 from jwt import InvalidTokenError
 
 from verify_oidc_token import verify_token
+
+# Fix deprecation warnings in tests:
+# * datetime.utcnow is deprecated in Python 3.12+
+# * datetime.UTC is available in Python 3.11+
+if sys.version_info < (3, 11):
+    from datetime import utcnow
+else:
+    from datetime import UTC
+
+    def utcnow():
+        return datetime.now(UTC)
 
 
 class TestVerifyToken(unittest.TestCase):
@@ -42,8 +54,8 @@ class TestVerifyToken(unittest.TestCase):
                 "iss": "https://example.com",
                 "aud": "test-client-id",
                 "sub": "user-123",
-                "iat": datetime.now(UTC),
-                "exp": datetime.now(UTC) + timedelta(hours=1),
+                "iat": utcnow(),
+                "exp": utcnow() + timedelta(hours=1),
             },
             "mock_key",
             algorithm="HS256",
@@ -53,8 +65,8 @@ class TestVerifyToken(unittest.TestCase):
             "iss": "https://example.com",
             "aud": "test-client-id",
             "sub": "user-123",
-            "iat": datetime.now(UTC),
-            "exp": datetime.now(UTC) + timedelta(hours=1),
+            "iat": utcnow(),
+            "exp": utcnow() + timedelta(hours=1),
         }
 
         with patch("jwt.decode", return_value=expected_claims):
@@ -76,8 +88,8 @@ class TestVerifyToken(unittest.TestCase):
                 "iss": "https://wrong-issuer.com",
                 "aud": "test-client-id",
                 "sub": "user-123",
-                "iat": datetime.now(UTC),
-                "exp": datetime.now(UTC) + timedelta(hours=1),
+                "iat": utcnow(),
+                "exp": utcnow() + timedelta(hours=1),
             },
             "mock_key",
             algorithm="HS256",
@@ -98,8 +110,8 @@ class TestVerifyToken(unittest.TestCase):
                 "iss": "https://example.com",
                 "aud": "test-client-id",
                 "sub": "user-123",
-                "iat": datetime.now(UTC) - timedelta(hours=2),
-                "exp": datetime.now(UTC) - timedelta(hours=1),
+                "iat": utcnow() - timedelta(hours=2),
+                "exp": utcnow() - timedelta(hours=1),
             },
             "mock_key",
             algorithm="HS256",
@@ -120,8 +132,8 @@ class TestVerifyToken(unittest.TestCase):
                 "iss": "https://example.com",
                 "aud": "wrong-client-id",
                 "sub": "user-123",
-                "iat": datetime.now(UTC),
-                "exp": datetime.now(UTC) + timedelta(hours=1),
+                "iat": utcnow(),
+                "exp": utcnow() + timedelta(hours=1),
             },
             "mock_key",
             algorithm="HS256",
