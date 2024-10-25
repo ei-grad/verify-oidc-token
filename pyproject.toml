@@ -1,21 +1,38 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.25.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "verify-oidc-token"
 version = "0.1.0b1"
 description = "A tool to verify OIDC tokens"
+readme = "README.md"
+readme-content-type = "text/markdown"
+license = "MIT"
+# expect `license-files` field to break on any new version of hatch, because
+# PEP-639 is already changed from this structure as of the time of writing
+license-files = { paths = ["LICENSE"] }
 requires-python = ">=3.8"
 authors = [
   { name = "Andrew Grigorev" , email = "andrew@ei-grad.ru" },
 ]
-urls = { GitHub = "https://github.com/ei-grad/verify-oidc-token" }
 dependencies = [
     "requests>=2.25.0,<3.0.0",
     "pyjwt>=2.0.0,<3.0.0",
     "cryptography>=43.0.3",
 ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+GitHub = "https://github.com/ei-grad/verify-oidc-token"
 
 [project.scripts]
 verify-oidc-token = "verify_oidc_token.cli:main"
