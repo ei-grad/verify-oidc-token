@@ -12,7 +12,7 @@ from verify_oidc_token import verify_token
 # * datetime.utcnow is deprecated in Python 3.12+
 # * datetime.UTC is available in Python 3.11+
 if sys.version_info < (3, 11):
-    from datetime import utcnow
+    utcnow = datetime.utcnow
 else:
     from datetime import UTC
 
