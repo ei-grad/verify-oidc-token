@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "verify-oidc-token"
-version = "0.1.0b1"
+version = "0.1.0"
 description = "A tool to verify OIDC tokens"
 readme = "README.md"
 readme-content-type = "text/markdown"
@@ -19,7 +19,7 @@ authors = [
 dependencies = [
     "requests>=2.25.0,<3.0.0",
     "pyjwt>=2.0.0,<3.0.0",
-    "cryptography>=43.0.3",
+    "cryptography",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
