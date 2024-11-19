@@ -2,6 +2,10 @@
 
 Python tool for verifying OpenID Connect (OIDC) tokens.
 
+## Notice
+
+Please note that the current implementation may not fully comply with the related RFC for verifying OIDC tokens. Additional checks and validations might be necessary for complete compliance. Users are advised to review the implementation and make any necessary adjustments to ensure it meets their specific requirements and security standards.
+
 ## Installation
 
 Install via PyPI:
@@ -131,4 +135,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 Andrew Grigorev (<andrew@ei-grad.ru>)
 
 Reach out with any questions or contribute to the project via the [GitHub repository](https://github.com/ei-grad/verify-oidc-token).
-

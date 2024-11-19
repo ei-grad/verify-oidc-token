@@ -1,0 +1,5 @@
+mypy
+types-requests
+black
+isort
+flake8

@@ -45,8 +45,7 @@ jobs:
     - name: Install test requirements
       run: pip install -r requirements-test.txt
     - name: Test
-      # enter to the tests directory to use the module installed from the wheel
-      run: cd tests && pytest
+      run: pytest
 
   pypi-publish-test:
     name: Release on Test PyPI

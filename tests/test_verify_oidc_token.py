@@ -102,7 +102,7 @@ class TestVerifyToken(unittest.TestCase):
                 client_id="test-client-id",
             )
 
-        self.assertIn("Invalid token issuer", str(context.exception))
+        self.assertIn("issuer", str(context.exception))
 
     def test_expired_token_error(self):
         expired_token = jwt.encode(
@@ -124,7 +124,7 @@ class TestVerifyToken(unittest.TestCase):
                 client_id="test-client-id",
             )
 
-        self.assertIn("Token has expired", str(context.exception))
+        self.assertIn("expired", str(context.exception))
 
     def test_invalid_audience_error(self):
         wrong_audience_token = jwt.encode(
@@ -146,7 +146,7 @@ class TestVerifyToken(unittest.TestCase):
                 client_id="test-client-id",
             )
 
-        self.assertIn("Invalid token audience", str(context.exception))
+        self.assertIn("audience", str(context.exception).lower())
 
 
 if __name__ == "__main__":

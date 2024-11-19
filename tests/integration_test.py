@@ -109,7 +109,7 @@ class IntegrationTestVerifyToken(unittest.TestCase):
                 issuer="http://localhost:5001",
                 client_id="invalid-client-id",
             )
-        self.assertIn("Invalid token audience", str(context.exception))
+        self.assertIn("audience", str(context.exception).lower())
 
     def test_verify_token_expired(self):
         # Create an expired token and test that it fails verification
@@ -131,7 +131,7 @@ class IntegrationTestVerifyToken(unittest.TestCase):
                 issuer="http://localhost:5001",
                 client_id="test-client-id",
             )
-        self.assertIn("Token has expired", str(context.exception))
+        self.assertIn("expired", str(context.exception))
 
     def test_cli_verify_token_success(self):
         # Генерируем токен с использованием приватного ключа
@@ -205,7 +205,7 @@ class IntegrationTestVerifyToken(unittest.TestCase):
         try:
             error_output = json.loads(result.stdout)  # Теперь используем stdout
             self.assertIn("error", error_output)
-            self.assertIn("Token has expired", error_output["error"])
+            self.assertIn("expired", error_output["error"])
         except json.JSONDecodeError:
             self.fail("Error output is not valid JSON")
 

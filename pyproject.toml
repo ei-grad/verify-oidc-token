@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "verify-oidc-token"
-version = "0.1.0"
+version = "0.2.0"
 description = "A tool to verify OIDC tokens"
 readme = "README.md"
 readme-content-type = "text/markdown"
@@ -37,3 +37,8 @@ GitHub = "https://github.com/ei-grad/verify-oidc-token"
 [project.scripts]
 verify-oidc-token = "verify_oidc_token.cli:main"
 
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"

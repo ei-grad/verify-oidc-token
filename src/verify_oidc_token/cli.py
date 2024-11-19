@@ -14,9 +14,9 @@ def main():
         "--token-file",
         help="File containing the OIDC token (if not specified, token is read from stdin).",
     )
-    parser.add_argument("--issuer", required=True, help="Expected issuer of the token.")
+    parser.add_argument("--issuer", help="Required issuer of the token.")
     parser.add_argument(
-        "--client-id", required=True, help="Expected client ID (audience) of the token."
+        "--client-id", help="Required client ID (audience) of the token."
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging for debugging."
