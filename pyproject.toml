@@ -39,6 +39,11 @@ verify-oidc-token = "verify_oidc_token.cli:main"
 # covers dependabot PRs). Override ad hoc with `uv lock --exclude-newer <value>`.
 [tool.uv]
 exclude-newer = "7 days ago"
+# Lock the dev environment for Python >= 3.10 only: security fixes in several
+# (dev) dependencies dropped the EOL 3.9, and keeping 3.9 resolution forks pins
+# vulnerable versions in uv.lock. Python 3.9 package support is unaffected — the
+# CI matrix and tox install without the lockfile.
+environments = ["python_full_version >= '3.10'"]
 
 # Keep the sdist self-testable for downstream repackagers; the rest of the repo
 # internals (CI config, dotfiles, uv.lock) are intentionally not shipped.
