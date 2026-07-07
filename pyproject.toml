@@ -34,6 +34,12 @@ GitHub = "https://github.com/ei-grad/verify-oidc-token"
 [project.scripts]
 verify-oidc-token = "verify_oidc_token.cli:main"
 
+# Dependency cooldown: freshly published releases enter the lock only after a week,
+# reducing the supply-chain window (complements the dependabot cooldown, which only
+# covers dependabot PRs). Override ad hoc with `uv lock --exclude-newer <value>`.
+[tool.uv]
+exclude-newer = "7 days ago"
+
 # Keep the sdist self-testable for downstream repackagers; the rest of the repo
 # internals (CI config, dotfiles, uv.lock) are intentionally not shipped.
 [tool.uv.build-backend]
