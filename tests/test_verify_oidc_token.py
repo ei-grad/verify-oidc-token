@@ -1,4 +1,6 @@
+import json
 import sys
+import time
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -126,8 +128,19 @@ class TestVerifyToken(unittest.TestCase):
         self.assertIn("aud", str(context.exception))
 
     def test_unsafe_mode_non_string_iss_rejected(self):
+        # jwt.encode itself refuses to create a token with a non-string iss (PyJWT 2.11+),
+        # so sign the raw payload via PyJWS to bypass the encode-time validation.
+        payload = {
+            "iss": 123,
+            "aud": CLIENT_ID,
+            "sub": "user-123",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 3600,
+        }
+        token = jwt.PyJWS().encode(json.dumps(payload).encode(), private_key, algorithm="RS256")
+
         with self.assertRaises(InvalidTokenError) as context:
-            verify_token(token=make_token(iss=123), issuer=UNSAFE_FROM_TOKEN, client_id=CLIENT_ID)
+            verify_token(token=token, issuer=UNSAFE_FROM_TOKEN, client_id=CLIENT_ID)
         self.assertIn("not a string", str(context.exception))
 
     def test_unsafe_mode_non_string_aud_rejected(self):
