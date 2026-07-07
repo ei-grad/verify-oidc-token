@@ -6,19 +6,15 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import jwt
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.utils import base64url_encode
 
 from verify_oidc_token import verify_token
 
 # Generate RSA keys
-private_key = rsa.generate_private_key(
-    public_exponent=65537, key_size=2048, backend=default_backend()
-)
+private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 public_key = private_key.public_key()
 
-# Serialize the public key to JWK format
 kid = "test-key-id"
 
 
@@ -48,7 +44,10 @@ class OIDCServerHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            config = {"jwks_uri": "http://localhost:5001/.well-known/jwks.json"}
+            config = {
+                "issuer": ISSUER,
+                "jwks_uri": f"{ISSUER}/.well-known/jwks.json",
+            }
             self.wfile.write(json.dumps(config).encode("utf-8"))
 
         elif self.path == "/.well-known/jwks.json":
@@ -62,17 +61,11 @@ class OIDCServerHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
 
-def run_server():
-    server = HTTPServer(("localhost", 5001), OIDCServerHandler)
-    server.serve_forever()
-
-
-server_thread = threading.Thread(target=run_server)
-server_thread.daemon = True
-server_thread.start()
-
-# Wait for the server to start
-time.sleep(1)
+# Port 0 lets the OS pick a free port; binding happens in the HTTPServer constructor,
+# so the server is ready to accept connections before the tests start.
+_server = HTTPServer(("localhost", 0), OIDCServerHandler)
+ISSUER = f"http://localhost:{_server.server_address[1]}"
+threading.Thread(target=_server.serve_forever, daemon=True).start()
 
 
 class IntegrationTestVerifyToken(unittest.TestCase):
@@ -81,7 +74,7 @@ class IntegrationTestVerifyToken(unittest.TestCase):
         # Generate a valid token with the private key
         cls.token = jwt.encode(
             {
-                "iss": "http://localhost:5001",
+                "iss": ISSUER,
                 "sub": "user-123",
                 "aud": "test-client-id",
                 "iat": int(time.time()),
@@ -94,28 +87,22 @@ class IntegrationTestVerifyToken(unittest.TestCase):
 
     def test_verify_token_success(self):
         # Test successful verification of a valid token
-        claims = verify_token(
-            token=self.token, issuer="http://localhost:5001", client_id="test-client-id"
-        )
-        self.assertEqual(claims["iss"], "http://localhost:5001")
+        claims = verify_token(token=self.token, issuer=ISSUER, client_id="test-client-id")
+        self.assertEqual(claims["iss"], ISSUER)
         self.assertEqual(claims["aud"], "test-client-id")
         self.assertEqual(claims["sub"], "user-123")
 
     def test_verify_token_invalid_audience(self):
         # Test verification fails for an invalid audience
         with self.assertRaises(jwt.InvalidTokenError) as context:
-            verify_token(
-                token=self.token,
-                issuer="http://localhost:5001",
-                client_id="invalid-client-id",
-            )
+            verify_token(token=self.token, issuer=ISSUER, client_id="invalid-client-id")
         self.assertIn("audience", str(context.exception).lower())
 
     def test_verify_token_expired(self):
         # Create an expired token and test that it fails verification
         expired_token = jwt.encode(
             {
-                "iss": "http://localhost:5001",
+                "iss": ISSUER,
                 "sub": "user-123",
                 "aud": "test-client-id",
                 "iat": int(time.time()) - 600,
@@ -126,54 +113,59 @@ class IntegrationTestVerifyToken(unittest.TestCase):
             headers={"kid": kid},
         )
         with self.assertRaises(jwt.InvalidTokenError) as context:
-            verify_token(
-                token=expired_token,
-                issuer="http://localhost:5001",
-                client_id="test-client-id",
-            )
+            verify_token(token=expired_token, issuer=ISSUER, client_id="test-client-id")
         self.assertIn("expired", str(context.exception))
 
     def test_cli_verify_token_success(self):
-        # Генерируем токен с использованием приватного ключа
-        valid_token = jwt.encode(
-            {
-                "iss": "http://localhost:5001",
-                "aud": "test-client-id",
-                "sub": "user-123",
-                "iat": int(time.time()),
-                "exp": int(time.time()) + 600,  # Expires in 10 minutes
-            },
-            private_key,
-            algorithm="RS256",
-            headers={"kid": kid},
-        )
-
-        # Запускаем CLI команду через subprocess
         result = subprocess.run(
             [
                 "verify-oidc-token",
                 "--issuer",
-                "http://localhost:5001",
+                ISSUER,
                 "--client-id",
                 "test-client-id",
             ],
-            input=valid_token,
+            input=self.token,
             text=True,
             capture_output=True,
             check=True,
         )
 
-        # Парсим выходные данные и проверяем, что они соответствуют ожидаемым claims
         output = json.loads(result.stdout)
-        self.assertEqual(output["iss"], "http://localhost:5001")
+        self.assertEqual(output["iss"], ISSUER)
         self.assertEqual(output["aud"], "test-client-id")
         self.assertEqual(output["sub"], "user-123")
 
+    def test_cli_verify_token_auto_discovery(self):
+        # With --unsafe and no --issuer/--client-id the CLI falls back to the
+        # take-it-from-the-token mode
+        result = subprocess.run(
+            ["verify-oidc-token", "--unsafe"],
+            input=self.token,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        output = json.loads(result.stdout)
+        self.assertEqual(output["iss"], ISSUER)
+        self.assertEqual(output["sub"], "user-123")
+
+    def test_cli_missing_issuer_without_unsafe(self):
+        result = subprocess.run(
+            ["verify-oidc-token"],
+            input=self.token,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--issuer and --client-id are required", result.stderr)
+
     def test_cli_verify_token_expired(self):
-        # Генерируем истёкший токен
         expired_token = jwt.encode(
             {
-                "iss": "http://localhost:5001",
+                "iss": ISSUER,
                 "aud": "test-client-id",
                 "sub": "user-123",
                 "iat": int(time.time()) - 1200,  # Issued 20 minutes ago
@@ -184,12 +176,11 @@ class IntegrationTestVerifyToken(unittest.TestCase):
             headers={"kid": kid},
         )
 
-        # Запускаем CLI команду через subprocess, проверяя, что она завершается с ненулевым кодом
         result = subprocess.run(
             [
                 "verify-oidc-token",
                 "--issuer",
-                "http://localhost:5001",
+                ISSUER,
                 "--client-id",
                 "test-client-id",
             ],
@@ -198,12 +189,10 @@ class IntegrationTestVerifyToken(unittest.TestCase):
             capture_output=True,
         )
 
-        # Проверяем, что код завершения ненулевой (ошибка)
+        # The CLI must exit with a non-zero code and report the error as JSON on stdout
         self.assertNotEqual(result.returncode, 0)
-
-        # Парсим вывод как JSON и проверяем сообщение об истечении токена
         try:
-            error_output = json.loads(result.stdout)  # Теперь используем stdout
+            error_output = json.loads(result.stdout)
             self.assertIn("error", error_output)
             self.assertIn("expired", error_output["error"])
         except json.JSONDecodeError:

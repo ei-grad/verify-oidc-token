@@ -5,7 +5,7 @@ import sys
 
 from jwt.exceptions import InvalidTokenError
 
-from . import verify_token
+from . import UNSAFE_FROM_TOKEN, verify_token
 
 
 def main():
@@ -14,15 +14,30 @@ def main():
         "--token-file",
         help="File containing the OIDC token (if not specified, token is read from stdin).",
     )
-    parser.add_argument("--issuer", help="Required issuer of the token.")
     parser.add_argument(
-        "--client-id", help="Required client ID (audience) of the token."
+        "--issuer",
+        help="Expected issuer of the token. Required unless --unsafe is given.",
+    )
+    parser.add_argument(
+        "--client-id",
+        help="Expected client ID (audience) of the token. Required unless --unsafe is given.",
+    )
+    parser.add_argument(
+        "--unsafe",
+        action="store_true",
+        help="Allow a missing --issuer / --client-id to be taken from the unverified"
+        " token payload. The corresponding check becomes self-referential: the token"
+        " is verified against whatever issuer/audience it claims itself. Debugging only.",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging for debugging."
     )
 
     args = parser.parse_args()
+
+    # Empty strings are treated the same as missing values.
+    if not args.unsafe and (not args.issuer or not args.client_id):
+        parser.error("--issuer and --client-id are required (or pass --unsafe)")
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -31,14 +46,18 @@ def main():
         try:
             with open(args.token_file) as f:
                 token = f.read().strip()
+        # Any I/O or decoding error must surface as a JSON error message on stdout.
         except Exception as e:
             print(json.dumps({"error": f"Failed to read token file: {e}"}))
             sys.exit(1)
     else:
         token = sys.stdin.read().strip()
 
+    issuer = args.issuer if args.issuer else UNSAFE_FROM_TOKEN
+    client_id = args.client_id if args.client_id else UNSAFE_FROM_TOKEN
+
     try:
-        claims = verify_token(token, args.issuer, args.client_id)
+        claims = verify_token(token, issuer, client_id)
         print(json.dumps(claims, indent=2))
     except InvalidTokenError as e:
         print(json.dumps({"error": str(e)}))

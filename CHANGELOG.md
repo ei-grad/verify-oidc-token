@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-07-07
+### Security
+- **Breaking**: `verify_token` now requires explicit `issuer` and `client_id` arguments. The
+  previous behavior of deriving them from the unverified token payload made the corresponding
+  checks self-referential (the token was verified against whatever issuer/audience it claimed
+  itself); it is still available by explicitly passing the new `UNSAFE_FROM_TOKEN` sentinel.
+  Passing `None` raises `TypeError`.
+- The `issuer` announced in the OIDC discovery document is now validated to match the expected
+  issuer, as required by OIDC Discovery 4.3.
+- Only asymmetric signing algorithms (`RS*`/`ES*`/`PS*`/`EdDSA`) announced by the provider are
+  accepted, preventing algorithm-confusion attacks via `HS*`/`none`.
+- The `exp`, `iat`, `iss` and `aud` claims are now required to be present in the token.
+- Replaced an `assert` on the audience list (a no-op under `python -O`) with a proper
+  `InvalidTokenError`; deriving the client ID from a multi-audience token is rejected.
+- HTTP requests to the OIDC provider (discovery document and JWKS) now use a 10-second timeout.
+
+### Changed
+- **Breaking**: the CLI now requires `--issuer` and `--client-id` (empty values count as
+  missing); the previous take-them-from-the-token behavior is available via an explicit
+  `--unsafe` flag.
+- PyJWT requirement bumped to `>=2.6.0` (needed for the `PyJWKClient` timeout support).
+- Dropped support for Python 3.8 (EOL); added Python 3.14 to the test matrix.
+- CI: the workflow now runs only on pushes to `main`, `v*` tags, and pull requests; Test PyPI
+  publishing is performed only for tags; GitHub releases are published immediately instead of
+  being created as drafts; distributions are built with `uv build` and validated with
+  `twine check --strict`.
+- Development environment is now managed with `uv`: dev/test dependencies moved from
+  `requirements-dev.txt`/`requirements-test.txt` to the PEP 735 `dev` dependency group in
+  `pyproject.toml`, `uv.lock` committed.
+- Build backend switched from `hatchling` to `uv_build`: distribution metadata is now
+  Metadata-Version 2.4 with a valid PEP 639 license expression (hatchling 1.25 emitted
+  `License-Expression` under Metadata-Version 2.3, which `twine check --strict` rejects);
+  `license-files` migrated to the final PEP 639 array form. The sdist no longer bundles repo
+  internals (CI config, dotfiles, `uv.lock`) but still includes the tests, changelog and tox
+  config.
+- CI actions are pinned to full commit SHAs; Dependabot configured to keep the pins and the
+  `uv.lock` up to date.
+
+### Fixed
+- The GitHub release is now created for the pushed `v<version>` tag instead of creating a stray
+  `<version>` tag at the default branch HEAD.
+- Integration tests bind the mock OIDC server to a free port instead of hardcoded 5001 and no
+  longer sleep at import time.
+
 ## [0.2.0] - 2024-11-19
 ### Added
 - **Development Tools**:

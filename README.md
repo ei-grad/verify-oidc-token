@@ -45,8 +45,13 @@ verify-oidc-token --token-file /path/to/token.txt --issuer https://example-issue
 ### CLI Options:
 
 - `--token-file` : The file containing the OIDC token (can be omitted if passed via stdin).
-- `--issuer` : The expected issuer of the token (authorization server).
-- `--client-id` : The expected client ID (audience) of the token.
+- `--issuer` : The expected issuer of the token (authorization server). Required unless
+  `--unsafe` is given; an empty value counts as missing.
+- `--client-id` : The expected client ID (audience) of the token. Required unless `--unsafe`
+  is given; an empty value counts as missing.
+- `--unsafe` : Allow a missing `--issuer` / `--client-id` to be taken from the unverified token
+  payload. The corresponding check becomes self-referential: the token is verified against
+  whatever issuer/audience it claims itself. Debugging only.
 - `--verbose`: Enable verbose logging for debugging purposes.
 
 Example:
@@ -72,7 +77,7 @@ For an invalid token:
 
 ```json
 {
-  "error": "Invalid issuer. Expected 'https://example-issuer.com', got 'https://wrong-issuer.com'"
+  "error": "Invalid issuer"
 }
 ```
 
@@ -108,23 +113,40 @@ except jwt.InvalidTokenError as e:
 
 ### Library API:
 
-- `verify_token(token: str, issuer: str, client_id: str) -> dict`
+- `verify_token(token: str, issuer, client_id) -> dict`
    Verifies the token, ensuring it matches the specified issuer and client ID, and returns the claims if valid.
 
    - **Parameters**:
      - `token` (str): The JWT to verify.
-     - `issuer` (str): Expected issuer of the token.
-     - `client_id` (str): Expected client ID (audience).
+     - `issuer` (str or `UNSAFE_FROM_TOKEN`): Expected issuer of the token.
+     - `client_id` (str or `UNSAFE_FROM_TOKEN`): Expected client ID (audience).
    - **Returns**: Dictionary with the decoded claims.
-   - **Raises**: `jwt.InvalidTokenError` if validation fails.
+   - **Raises**: `jwt.InvalidTokenError` if validation fails, `TypeError` if `issuer` or
+     `client_id` is neither a string nor `UNSAFE_FROM_TOKEN`.
 
-## Testing
+   Both `issuer` and `client_id` are required. Passing the `UNSAFE_FROM_TOKEN` sentinel
+   (importable from `verify_oidc_token`) opts into deriving the value from the unverified token
+   payload — this makes the corresponding check self-referential and should only be used for
+   debugging, or when the caller applies its own trust decision to the returned claims.
 
-Run unit tests to ensure functionality:
+## Development
+
+The project is managed with [uv](https://docs.astral.sh/uv/). Run the tests:
 
 ```bash
-python -m unittest discover tests
+uv run -m pytest
 ```
+
+Linters and type checking (installed as the `dev` dependency group):
+
+```bash
+uv run flake8 src tests
+uv run black --check src tests
+uv run isort --check-only src tests
+uv run mypy src
+```
+
+Use `tox` to run the tests against all supported Python versions.
 
 ## License
 

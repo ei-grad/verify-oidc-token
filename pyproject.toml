@@ -1,24 +1,21 @@
 [build-system]
-requires = ["hatchling==1.25.0"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "verify-oidc-token"
-version = "0.2.0"
+version = "0.3.0"
 description = "A tool to verify OIDC tokens"
 readme = "README.md"
-readme-content-type = "text/markdown"
 license = "MIT"
-# expect `license-files` field to break on any new version of hatch, because
-# PEP-639 is already changed from this structure as of the time of writing
-license-files = { paths = ["LICENSE"] }
-requires-python = ">=3.8"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
 authors = [
   { name = "Andrew Grigorev" , email = "andrew@ei-grad.ru" },
 ]
 dependencies = [
     "requests>=2.25.0,<3.0.0",
-    "pyjwt>=2.0.0,<3.0.0",
+    "pyjwt>=2.6.0,<3.0.0",
     "cryptography",
 ]
 classifiers = [
@@ -37,8 +34,25 @@ GitHub = "https://github.com/ei-grad/verify-oidc-token"
 [project.scripts]
 verify-oidc-token = "verify_oidc_token.cli:main"
 
+# Keep the sdist self-testable for downstream repackagers; the rest of the repo
+# internals (CI config, dotfiles, uv.lock) are intentionally not shipped.
+[tool.uv.build-backend]
+source-include = ["tests/**", "CHANGELOG.md", "tox.ini"]
+
+[dependency-groups]
+dev = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "pytest",
+    "pytest-cov>=7.1.0",
+    "types-requests",
+]
+
 [tool.black]
 line-length = 100
+target-version = ["py39", "py310", "py311", "py312", "py313", "py314"]
 
 [tool.isort]
 profile = "black"
