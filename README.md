@@ -92,6 +92,13 @@ For an invalid token:
   }
   ```
 
+### Exit Codes:
+
+- `0` — the token is valid; decoded claims were printed.
+- `1` — token validation failed (a JSON `error` object is printed).
+- `2` — invocation error: bad command-line usage (e.g. missing `--issuer` / `--client-id`
+  without `--unsafe`) or an unreadable `--token-file`; the token was not verified.
+
 ## Library Usage
 
 Use this tool as a library in Python code:

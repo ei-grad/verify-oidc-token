@@ -129,7 +129,7 @@ class TestCli(unittest.TestCase):
     def test_unreadable_token_file(self):
         exit_code, output, _ = self.run_cli(["--unsafe", "--token-file", "/nonexistent/token.txt"])
 
-        self.assertEqual(exit_code, 1)
+        self.assertEqual(exit_code, 2)
         self.assertIn("Failed to read token file", json.loads(output)["error"])
 
     def test_invalid_token_error_reported_as_json(self):

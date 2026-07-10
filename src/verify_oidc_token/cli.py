@@ -49,7 +49,7 @@ def main():
         # Any I/O or decoding error must surface as a JSON error message on stdout.
         except Exception as e:
             print(json.dumps({"error": f"Failed to read token file: {e}"}))
-            sys.exit(1)
+            sys.exit(2)
     else:
         token = sys.stdin.read().strip()
 
