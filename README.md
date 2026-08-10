@@ -52,6 +52,7 @@ verify-oidc-token --token-file /path/to/token.txt --issuer https://example-issue
 - `--unsafe` : Allow a missing `--issuer` / `--client-id` to be taken from the unverified token
   payload. The corresponding check becomes self-referential: the token is verified against
   whatever issuer/audience it claims itself. Debugging only.
+- `--show-header`: Include the decoded JWT header alongside the verified claims.
 - `--verbose`: Enable verbose logging for debugging purposes.
 
 Example:
@@ -84,6 +85,20 @@ For an invalid token:
 ### Output Format:
 
 - Valid tokens return decoded claims as a JSON object.
+- With `--show-header`, valid tokens return the decoded header and claims in a JSON object:
+
+  ```json
+  {
+    "header": {
+      "alg": "RS256",
+      "kid": "key-id"
+    },
+    "claims": {
+      "sub": "1234567890"
+    }
+  }
+  ```
+
 - If validation fails, an error message is returned as JSON:
 
   ```json

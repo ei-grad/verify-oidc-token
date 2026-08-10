@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 
+import jwt
 from jwt.exceptions import InvalidTokenError
 
 from . import UNSAFE_FROM_TOKEN, verify_token
@@ -32,6 +33,11 @@ def main():
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging for debugging."
     )
+    parser.add_argument(
+        "--show-header",
+        action="store_true",
+        help="Include the decoded JWT header alongside the verified claims.",
+    )
 
     args = parser.parse_args()
 
@@ -58,7 +64,12 @@ def main():
 
     try:
         claims = verify_token(token, issuer, client_id)
-        print(json.dumps(claims, indent=2))
+        output = (
+            {"header": jwt.get_unverified_header(token), "claims": claims}
+            if args.show_header
+            else claims
+        )
+        print(json.dumps(output, indent=2))
     except InvalidTokenError as e:
         print(json.dumps({"error": str(e)}))
         sys.exit(1)

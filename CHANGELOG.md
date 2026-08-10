@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+- Added a `--show-header` CLI flag that includes the decoded JWT header alongside the verified
+  claims.
+
 ## [0.3.0] - 2026-07-07
 ### Security
 - **Breaking**: `verify_token` now requires explicit `issuer` and `client_id` arguments. The
