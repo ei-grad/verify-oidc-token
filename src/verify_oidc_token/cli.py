@@ -34,7 +34,7 @@ def main():
         "--verbose", action="store_true", help="Enable verbose logging for debugging."
     )
     parser.add_argument(
-        "--show-header",
+        "--with-header",
         action="store_true",
         help="Include the decoded JWT header alongside the verified claims.",
     )
@@ -66,7 +66,7 @@ def main():
         claims = verify_token(token, issuer, client_id)
         output = (
             {"header": jwt.get_unverified_header(token), "claims": claims}
-            if args.show_header
+            if args.with_header
             else claims
         )
         print(json.dumps(output, indent=2))

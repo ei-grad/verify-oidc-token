@@ -99,14 +99,14 @@ class TestCli(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         mock_basic_config.assert_called_once()
 
-    def test_show_header_includes_header_and_claims(self):
+    def test_with_header_includes_header_and_claims(self):
         with patch("verify_oidc_token.cli.verify_token", return_value={"sub": "u"}) as mock_verify:
             with patch(
                 "verify_oidc_token.cli.jwt.get_unverified_header",
                 return_value={"alg": "RS256", "kid": "key-1"},
             ) as mock_get_header:
                 exit_code, output, errors = self.run_cli(
-                    ["--show-header", "--unsafe"], stdin_text="tok"
+                    ["--with-header", "--unsafe"], stdin_text="tok"
                 )
 
         self.assertEqual(exit_code, 0)
