@@ -77,8 +77,8 @@ def verify_token(
        signing key for the token.
 
     6. Verifies the token's signature and decodes the token, accepting only asymmetric signing
-       algorithms announced by the provider and requiring the ``exp``, ``iat``, ``iss`` and
-       ``aud`` claims to be present.
+       algorithms announced by the provider and requiring the ``exp``, ``iat``, ``iss``, ``sub``
+       and ``aud`` claims to be present.
 
     This verifier is intentionally limited to OIDC ID Tokens. JWTs explicitly typed as OAuth 2.0
     access tokens are rejected. With an explicit ``client_id``, a multi-audience ID Token is
@@ -193,7 +193,7 @@ def verify_token(
             algorithms=algorithms,
             audience=client_id,
             issuer=issuer,
-            options={"require": ["exp", "iat", "iss", "aud"]},
+            options={"require": ["exp", "iat", "iss", "sub", "aud"]},
         )
     except InvalidTokenError:
         raise

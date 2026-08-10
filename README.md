@@ -134,7 +134,8 @@ except jwt.InvalidTokenError as e:
 
 - `verify_token(token: str, issuer, client_id) -> dict`
    Verifies an OIDC ID Token, ensuring it matches the expected issuer and OIDC client audience,
-   and returns the claims if valid. OAuth 2.0 access tokens are not supported.
+   and returns the claims if valid. Validation requires the `iss`, `sub`, `aud`, `exp`, and `iat`
+   claims. OAuth 2.0 access tokens are not supported.
 
    - **Parameters**:
      - `token` (str): The encoded OIDC ID Token to verify.

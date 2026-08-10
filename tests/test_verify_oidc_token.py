@@ -32,7 +32,7 @@ private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 public_key = private_key.public_key()
 
 
-def make_token(headers=None, **overrides):
+def make_token(headers=None, signing_key=private_key, **overrides):
     payload = {
         "iss": ISSUER,
         "aud": CLIENT_ID,
@@ -45,7 +45,7 @@ def make_token(headers=None, **overrides):
             payload.pop(claim, None)
         else:
             payload[claim] = value
-    return jwt.encode(payload, private_key, algorithm="RS256", headers=headers)
+    return jwt.encode(payload, signing_key, algorithm="RS256", headers=headers)
 
 
 class TestVerifyToken(unittest.TestCase):
@@ -117,6 +117,24 @@ class TestVerifyToken(unittest.TestCase):
             client_id=UNSAFE_FROM_TOKEN,
         )
         self.assertEqual(claims["sub"], "user-123")
+
+    def test_unsafe_mode_still_rejects_invalid_signature(self):
+        wrong_signing_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        token = make_token(signing_key=wrong_signing_key)
+
+        with self.assertRaises(InvalidTokenError) as context:
+            verify_token(
+                token=token,
+                issuer=UNSAFE_FROM_TOKEN,
+                client_id=UNSAFE_FROM_TOKEN,
+            )
+
+        self.assertIn("Signature verification failed", str(context.exception))
+        self.mock_requests_get.assert_called_once_with(
+            "https://example.com/.well-known/openid-configuration",
+            timeout=REQUEST_TIMEOUT,
+        )
+        self.mock_get_signing_key.assert_called_once_with(token)
 
     def test_none_issuer_rejected(self):
         with self.assertRaises(TypeError):
@@ -210,7 +228,7 @@ class TestVerifyToken(unittest.TestCase):
         self.assertIn("audience", str(context.exception).lower())
 
     def test_missing_required_claims_rejected(self):
-        for claim in ("exp", "iat"):
+        for claim in ("exp", "iat", "sub"):
             with self.subTest(claim=claim):
                 with self.assertRaises(InvalidTokenError) as context:
                     verify_token(

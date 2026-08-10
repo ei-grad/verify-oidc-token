@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### Security
 - OAuth 2.0 JWT access tokens whose `typ` is `at+jwt` or `application/at+jwt` are now rejected
   case-insensitively instead of being accepted as OIDC ID Tokens.
+- ID Tokens without the required `sub` claim are now rejected.
 
 ### Changed
 - Clarified that the package verifies OIDC ID Tokens rather than general OIDC or OAuth 2.0 tokens,
