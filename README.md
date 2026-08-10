@@ -1,6 +1,7 @@
 # verify-oidc-token
 
-Python tool for verifying OpenID Connect (OIDC) tokens.
+Python tool for verifying OpenID Connect (OIDC) ID Tokens. OAuth 2.0 access tokens are not
+supported; JWT access tokens explicitly identified by their `typ` header are rejected.
 
 ## Installation
 
@@ -26,10 +27,10 @@ pip install .
 
 ## CLI Usage
 
-Verify an OIDC token directly from the command line. Example:
+Verify an OIDC ID Token directly from the command line. Example:
 
 ```bash
-echo "<OIDC_TOKEN>" | verify-oidc-token --issuer https://example-issuer.com --client-id <CLIENT_ID>
+echo "<ID_TOKEN>" | verify-oidc-token --issuer https://example-issuer.com --client-id <CLIENT_ID>
 ```
 
 Or, specify a file with the token:
@@ -40,14 +41,14 @@ verify-oidc-token --token-file /path/to/token.txt --issuer https://example-issue
 
 ### CLI Options:
 
-- `--token-file` : The file containing the OIDC token (can be omitted if passed via stdin).
-- `--issuer` : The expected issuer of the token (authorization server). Required unless
+- `--token-file` : The file containing the OIDC ID Token (can be omitted if passed via stdin).
+- `--issuer` : The expected OIDC issuer. Required unless
   `--unsafe` is given; an empty value counts as missing.
-- `--client-id` : The expected client ID (audience) of the token. Required unless `--unsafe`
-  is given; an empty value counts as missing.
-- `--unsafe` : Allow a missing `--issuer` / `--client-id` to be taken from the unverified token
-  payload. The corresponding check becomes self-referential: the token is verified against
-  whatever issuer/audience it claims itself. Debugging only.
+- `--client-id` : The expected OIDC client ID, which is matched against the ID Token `aud` claim.
+  Required unless `--unsafe` is given; an empty value counts as missing.
+- `--unsafe` : Take a missing expected issuer or client audience from the unverified ID Token
+  payload, making those two checks self-referential. Signature verification and the other token
+  validation still run. Debugging only.
 - `--with-header`: Include the decoded JWT header alongside the verified claims.
 - `--verbose`: Enable verbose logging for debugging purposes.
 
@@ -132,19 +133,22 @@ except jwt.InvalidTokenError as e:
 ### Library API:
 
 - `verify_token(token: str, issuer, client_id) -> dict`
-   Verifies the token, ensuring it matches the specified issuer and client ID, and returns the claims if valid.
+   Verifies an OIDC ID Token, ensuring it matches the expected issuer and OIDC client audience,
+   and returns the claims if valid. OAuth 2.0 access tokens are not supported.
 
    - **Parameters**:
-     - `token` (str): The JWT to verify.
-     - `issuer` (str or `UNSAFE_FROM_TOKEN`): Expected issuer of the token.
-     - `client_id` (str or `UNSAFE_FROM_TOKEN`): Expected client ID (audience).
+     - `token` (str): The encoded OIDC ID Token to verify.
+     - `issuer` (str or `UNSAFE_FROM_TOKEN`): Expected OIDC issuer.
+     - `client_id` (str or `UNSAFE_FROM_TOKEN`): Expected OIDC client ID, matched against the ID
+       Token `aud` claim.
    - **Returns**: Dictionary with the decoded claims.
    - **Raises**: `jwt.InvalidTokenError` if validation fails, `TypeError` if `issuer` or
      `client_id` is neither a string nor `UNSAFE_FROM_TOKEN`.
 
    Both `issuer` and `client_id` are required. Passing the `UNSAFE_FROM_TOKEN` sentinel
-   (importable from `verify_oidc_token`) opts into deriving the value from the unverified token
-   payload — this makes the corresponding check self-referential and should only be used for
+   (importable from `verify_oidc_token`) opts into deriving only that expected value from the
+   unverified ID Token payload. Signature verification and the other token validation still run,
+   but the corresponding issuer or audience check becomes self-referential. Use this only for
    debugging, or when the caller applies its own trust decision to the returned claims.
 
 ## Development

@@ -32,7 +32,7 @@ private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 public_key = private_key.public_key()
 
 
-def make_token(**overrides):
+def make_token(headers=None, **overrides):
     payload = {
         "iss": ISSUER,
         "aud": CLIENT_ID,
@@ -45,7 +45,7 @@ def make_token(**overrides):
             payload.pop(claim, None)
         else:
             payload[claim] = value
-    return jwt.encode(payload, private_key, algorithm="RS256")
+    return jwt.encode(payload, private_key, algorithm="RS256", headers=headers)
 
 
 class TestVerifyToken(unittest.TestCase):
@@ -89,6 +89,26 @@ class TestVerifyToken(unittest.TestCase):
             timeout=REQUEST_TIMEOUT,
         )
         self.mock_get_signing_key.assert_called_once_with(valid_token)
+
+    def test_oauth_access_token_types_rejected(self):
+        for token_type in (
+            "at+jwt",
+            "at+JWT",
+            "application/at+jwt",
+            "Application/AT+JWT",
+        ):
+            with self.subTest(token_type=token_type):
+                with self.assertRaises(InvalidTokenError) as context:
+                    verify_token(
+                        token=make_token(headers={"typ": token_type}),
+                        issuer=ISSUER,
+                        client_id=CLIENT_ID,
+                    )
+
+                self.assertIn("OAuth 2.0 access tokens are not supported", str(context.exception))
+
+        self.mock_requests_get.assert_not_called()
+        self.mock_get_signing_key.assert_not_called()
 
     def test_issuer_and_client_id_from_token(self):
         claims = verify_token(

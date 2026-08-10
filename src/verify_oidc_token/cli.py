@@ -10,25 +10,25 @@ from . import UNSAFE_FROM_TOKEN, verify_token
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verify OIDC token.")
+    parser = argparse.ArgumentParser(description="Verify an OpenID Connect ID Token.")
     parser.add_argument(
         "--token-file",
-        help="File containing the OIDC token (if not specified, token is read from stdin).",
+        help="File containing the OIDC ID Token (if omitted, the token is read from stdin).",
     )
     parser.add_argument(
         "--issuer",
-        help="Expected issuer of the token. Required unless --unsafe is given.",
+        help="Expected OIDC issuer. Required unless --unsafe is given.",
     )
     parser.add_argument(
         "--client-id",
-        help="Expected client ID (audience) of the token. Required unless --unsafe is given.",
+        help="Expected OIDC client ID (the ID Token audience). Required unless --unsafe is given.",
     )
     parser.add_argument(
         "--unsafe",
         action="store_true",
-        help="Allow a missing --issuer / --client-id to be taken from the unverified"
-        " token payload. The corresponding check becomes self-referential: the token"
-        " is verified against whatever issuer/audience it claims itself. Debugging only.",
+        help="Take a missing expected issuer or client audience from the unverified ID Token"
+        " payload, making those checks self-referential. Signature verification and other token"
+        " validation still run. Debugging only.",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging for debugging."

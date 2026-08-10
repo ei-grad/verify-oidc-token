@@ -31,17 +31,22 @@ ALLOWED_SIGNING_ALGORITHMS = frozenset(
     }
 )
 
+# RFC 9068 uses these media types to identify OAuth 2.0 JWT access tokens.
+# RFC 7515 defines media type and subtype matching for ``typ`` as case-insensitive.
+_OAUTH_ACCESS_TOKEN_TYPES = frozenset({"at+jwt", "application/at+jwt"})
+
 
 class _UnsafeFromToken:
     def __repr__(self) -> str:
         return "UNSAFE_FROM_TOKEN"
 
 
-# Sentinel opting into deriving ``issuer`` / ``client_id`` from the unverified token
-# payload. This makes the corresponding check self-referential: the token is verified
-# against whatever issuer/audience it claims itself, so any party able to host an OIDC
-# discovery document can mint a token that passes. Only use it for debugging or when
-# the caller applies its own trust decision to the returned claims.
+# Sentinel opting into deriving the expected ``issuer`` / ``client_id`` from the
+# unverified ID Token payload. Signature verification and the remaining validation still
+# run, but the issuer and audience checks become self-referential: the token is checked
+# against whatever issuer/audience it claims itself. Any party able to host an OIDC
+# discovery document can therefore mint a token that passes those two checks. Only use it
+# for debugging or when the caller applies its own trust decision to the returned claims.
 UNSAFE_FROM_TOKEN = _UnsafeFromToken()
 
 
@@ -51,36 +56,40 @@ def verify_token(
     client_id: Union[str, _UnsafeFromToken],
 ) -> dict:
     """
-    Verifies an OIDC token.
+    Verifies an OpenID Connect (OIDC) ID Token.
 
-    This function verifies the authenticity and integrity of a given JWT using the OpenID Connect
-    (OIDC) protocol. It performs the following steps:
+    This function verifies the authenticity and integrity of an OIDC ID Token. It does not verify
+    OAuth 2.0 access tokens. It performs the following steps:
 
-    1. Decodes the token without signature verification to extract the payload.
+    1. Reads the unverified JWT header and rejects tokens explicitly typed as OAuth 2.0 access
+       tokens according to RFC 9068.
 
-    2. If :data:`UNSAFE_FROM_TOKEN` is passed as ``issuer`` or ``client_id``, takes the
-       corresponding value from the unverified payload (see the sentinel's warning).
+    2. Decodes the token without signature verification to extract the payload.
 
-    3. Retrieves the OIDC configuration from the issuer's well-known configuration URL and
+    3. If :data:`UNSAFE_FROM_TOKEN` is passed as ``issuer`` or ``client_id``, takes only the
+       corresponding expected value from the unverified payload (see the sentinel's warning).
+       Signature verification and the remaining token validation still run.
+
+    4. Retrieves the OIDC configuration from the issuer's well-known configuration URL and
        validates that the ``issuer`` it announces matches the expected issuer.
 
-    4. Initializes a PyJWKClient with the JWKS URI from the OIDC configuration and retrieves the
+    5. Initializes a PyJWKClient with the JWKS URI from the OIDC configuration and retrieves the
        signing key for the token.
 
-    5. Verifies the token's signature and decodes the token, accepting only asymmetric signing
+    6. Verifies the token's signature and decodes the token, accepting only asymmetric signing
        algorithms announced by the provider and requiring the ``exp``, ``iat``, ``iss`` and
        ``aud`` claims to be present.
 
-    Note: This implementation may not fully comply with the related RFC for verifying OIDC tokens.
-    Additional checks and validations might be necessary for complete compliance. In particular,
-    with an explicit ``client_id`` a multi-audience token is accepted as long as ``client_id`` is
-    among the audiences, while OIDC Core 3.1.3.7 also requires rejecting tokens with untrusted
-    additional audiences and validating the ``azp`` claim.
+    This verifier is intentionally limited to OIDC ID Tokens. JWTs explicitly typed as OAuth 2.0
+    access tokens are rejected. With an explicit ``client_id``, a multi-audience ID Token is
+    accepted as long as ``client_id`` is among the audiences, while OIDC Core 3.1.3.7 also requires
+    rejecting tokens with untrusted additional audiences and validating the ``azp`` claim.
 
-    :param token: JWT token to verify.
-    :param issuer: Expected issuer of the token, or :data:`UNSAFE_FROM_TOKEN`.
-    :param client_id: Expected client ID (audience), or :data:`UNSAFE_FROM_TOKEN`.
-    :return: Decoded claims of the token as a dictionary.
+    :param token: Encoded OIDC ID Token to verify.
+    :param issuer: Expected OIDC issuer, or :data:`UNSAFE_FROM_TOKEN`.
+    :param client_id: Expected OIDC client ID (the ID Token audience), or
+                      :data:`UNSAFE_FROM_TOKEN`.
+    :return: Decoded ID Token claims as a dictionary.
     :raises TypeError: If issuer or client_id is neither a string nor UNSAFE_FROM_TOKEN.
     :raises jwt.InvalidTokenError: If the token is invalid or fails verification.
     """
@@ -89,6 +98,13 @@ def verify_token(
         raise TypeError("issuer must be a str or the UNSAFE_FROM_TOKEN sentinel")
     if not isinstance(client_id, str) and client_id is not UNSAFE_FROM_TOKEN:
         raise TypeError("client_id must be a str or the UNSAFE_FROM_TOKEN sentinel")
+
+    unverified_header = jwt.get_unverified_header(token)
+    token_type = unverified_header.get("typ")
+    if isinstance(token_type, str) and token_type.lower() in _OAUTH_ACCESS_TOKEN_TYPES:
+        raise InvalidTokenError(
+            "OAuth 2.0 access tokens are not supported; expected an OpenID Connect ID Token"
+        )
 
     unverified_payload = jwt.decode(token, options={"verify_signature": False})
 

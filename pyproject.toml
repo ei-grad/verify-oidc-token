@@ -5,7 +5,7 @@ build-backend = "uv_build"
 [project]
 name = "verify-oidc-token"
 version = "0.3.1"
-description = "A tool to verify OIDC tokens"
+description = "A verifier for OpenID Connect ID Tokens"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

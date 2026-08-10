@@ -7,8 +7,15 @@ All notable changes to this project will be documented in this file.
 - Added a `--with-header` CLI flag that includes the decoded JWT header alongside the verified
   claims.
 
+### Security
+- OAuth 2.0 JWT access tokens whose `typ` is `at+jwt` or `application/at+jwt` are now rejected
+  case-insensitively instead of being accepted as OIDC ID Tokens.
+
 ### Changed
-- Removed the obsolete RFC compliance notice and beta development-status classifier.
+- Clarified that the package verifies OIDC ID Tokens rather than general OIDC or OAuth 2.0 tokens,
+  and documented that unsafe mode leaves signature and other token validation enabled while making
+  the expected issuer and client-audience checks self-referential.
+- Removed the beta development-status classifier.
 
 ## [0.3.0] - 2026-07-07
 ### Security
