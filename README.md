@@ -49,6 +49,9 @@ verify-oidc-token --token-file /path/to/token.txt --issuer https://example-issue
 - `--unsafe` : Take a missing expected issuer or client audience from the unverified ID Token
   payload, making those two checks self-referential. Signature verification and the other token
   validation still run. Debugging only.
+- `--leeway SECONDS`: Allow a finite, non-negative number of seconds of clock skew when validating
+  the `exp`, `nbf`, and `iat` claims. The default is `0`; signature, issuer, and audience validation
+  are unaffected.
 - `--with-header`: Include the decoded JWT header alongside the verified claims.
 - `--verbose`: Enable verbose logging for debugging purposes.
 
@@ -124,7 +127,7 @@ issuer = "https://accounts.google.com"
 client_id = "my-client-id"
 
 try:
-    claims = verify_token(token, issuer, client_id)
+    claims = verify_token(token, issuer, client_id, leeway=30)
     print("Token is valid. Claims:", claims)
 except jwt.InvalidTokenError as e:
     print({"error": str(e)})
@@ -132,7 +135,7 @@ except jwt.InvalidTokenError as e:
 
 ### Library API:
 
-- `verify_token(token: str, issuer, client_id) -> dict`
+- `verify_token(token: str, issuer, client_id, *, leeway: float = 0.0) -> dict`
    Verifies an OIDC ID Token, ensuring it matches the expected issuer and OIDC client audience,
    and returns the claims if valid. Validation requires the `iss`, `sub`, `aud`, `exp`, and `iat`
    claims. OAuth 2.0 access tokens are not supported.
@@ -142,9 +145,13 @@ except jwt.InvalidTokenError as e:
      - `issuer` (str or `UNSAFE_FROM_TOKEN`): Expected OIDC issuer.
      - `client_id` (str or `UNSAFE_FROM_TOKEN`): Expected OIDC client ID, matched against the ID
        Token `aud` claim.
+     - `leeway` (float): Finite, non-negative number of seconds representable as a Python `float`,
+       allowed when validating `exp`, `nbf`, and `iat`. Defaults to `0.0`; signature, issuer, and
+       audience validation are unaffected.
    - **Returns**: Dictionary with the decoded claims.
-   - **Raises**: `jwt.InvalidTokenError` if validation fails, `TypeError` if `issuer` or
-     `client_id` is neither a string nor `UNSAFE_FROM_TOKEN`.
+   - **Raises**: `jwt.InvalidTokenError` if validation fails, `TypeError` if an argument has an
+     invalid type, and `ValueError` if `leeway` is negative, not finite, or not representable as a
+     Python `float`.
 
    Both `issuer` and `client_id` are required. Passing the `UNSAFE_FROM_TOKEN` sentinel
    (importable from `verify_oidc_token`) opts into deriving only that expected value from the

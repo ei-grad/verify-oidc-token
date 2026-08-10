@@ -47,7 +47,7 @@ class TestCli(unittest.TestCase):
             exit_code, output, _ = self.run_cli(["--unsafe"], stdin_text="tok\n")
 
         self.assertEqual(exit_code, 0)
-        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN)
+        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN, leeway=0.0)
         self.assertEqual(json.loads(output), {"sub": "u"})
 
     def test_unsafe_flag_keeps_explicit_issuer(self):
@@ -58,7 +58,9 @@ class TestCli(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        mock_verify.assert_called_once_with("tok", "https://example.com", UNSAFE_FROM_TOKEN)
+        mock_verify.assert_called_once_with(
+            "tok", "https://example.com", UNSAFE_FROM_TOKEN, leeway=0.0
+        )
 
     def test_unsafe_flag_keeps_explicit_client_id(self):
         with patch("verify_oidc_token.cli.verify_token", return_value={}) as mock_verify:
@@ -68,7 +70,7 @@ class TestCli(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, "cid")
+        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, "cid", leeway=0.0)
 
     def test_unsafe_flag_treats_empty_values_as_missing(self):
         with patch("verify_oidc_token.cli.verify_token", return_value={}) as mock_verify:
@@ -78,7 +80,7 @@ class TestCli(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN)
+        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN, leeway=0.0)
 
     def test_explicit_issuer_and_client_id(self):
         with patch("verify_oidc_token.cli.verify_token", return_value={}) as mock_verify:
@@ -88,8 +90,34 @@ class TestCli(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        mock_verify.assert_called_once_with("tok", "https://example.com", "cid")
+        mock_verify.assert_called_once_with("tok", "https://example.com", "cid", leeway=0.0)
         self.assertEqual(errors, "")
+
+    def test_leeway_forwarded(self):
+        with patch("verify_oidc_token.cli.verify_token", return_value={}) as mock_verify:
+            exit_code, _, errors = self.run_cli(
+                ["--unsafe", "--leeway", "12.5"],
+                stdin_text="tok",
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(errors, "")
+        mock_verify.assert_called_once_with(
+            "tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN, leeway=12.5
+        )
+
+    def test_negative_leeway_rejected(self):
+        with patch("verify_oidc_token.cli.verify_token") as mock_verify:
+            exit_code, output, errors = self.run_cli(
+                ["--unsafe", "--leeway", "-1"],
+                stdin_text="tok",
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(output, "")
+        self.assertIn("--leeway", errors)
+        self.assertIn("non-negative", errors)
+        mock_verify.assert_not_called()
 
     def test_verbose_enables_debug_logging(self):
         with patch("verify_oidc_token.cli.verify_token", return_value={}):
@@ -111,7 +139,7 @@ class TestCli(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(errors, "")
-        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN)
+        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN, leeway=0.0)
         mock_get_header.assert_called_once_with("tok")
         self.assertEqual(
             json.loads(output),
@@ -145,7 +173,7 @@ class TestCli(unittest.TestCase):
                 exit_code, output, _ = self.run_cli(["--unsafe", "--token-file", token_path])
 
         self.assertEqual(exit_code, 0)
-        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN)
+        mock_verify.assert_called_once_with("tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN, leeway=0.0)
         self.assertEqual(json.loads(output), {"sub": "u"})
 
     def test_unreadable_token_file(self):

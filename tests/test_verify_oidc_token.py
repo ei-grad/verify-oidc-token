@@ -127,6 +127,7 @@ class TestVerifyToken(unittest.TestCase):
                 token=token,
                 issuer=UNSAFE_FROM_TOKEN,
                 client_id=UNSAFE_FROM_TOKEN,
+                leeway=30,
             )
 
         self.assertIn("Signature verification failed", str(context.exception))
@@ -218,6 +219,57 @@ class TestVerifyToken(unittest.TestCase):
             verify_token(token=expired_token, issuer=ISSUER, client_id=CLIENT_ID)
 
         self.assertIn("expired", str(context.exception))
+
+    def test_expiration_leeway(self):
+        now = int(time.time())
+        recently_expired_token = make_token(iat=now - 3600, exp=now - 30)
+
+        with self.assertRaises(InvalidTokenError):
+            verify_token(
+                token=recently_expired_token,
+                issuer=ISSUER,
+                client_id=CLIENT_ID,
+            )
+
+        with self.assertRaises(InvalidTokenError):
+            verify_token(
+                token=recently_expired_token,
+                issuer=ISSUER,
+                client_id=CLIENT_ID,
+                leeway=10,
+            )
+
+        claims = verify_token(
+            token=recently_expired_token,
+            issuer=ISSUER,
+            client_id=CLIENT_ID,
+            leeway=60,
+        )
+        self.assertEqual(claims["sub"], "user-123")
+
+    def test_negative_leeway_rejected_before_discovery(self):
+        with self.assertRaisesRegex(ValueError, "leeway must be non-negative"):
+            verify_token(
+                token=make_token(),
+                issuer=ISSUER,
+                client_id=CLIENT_ID,
+                leeway=-1,
+            )
+
+        self.mock_requests_get.assert_not_called()
+        self.mock_get_signing_key.assert_not_called()
+
+    def test_unrepresentable_leeway_rejected_before_discovery(self):
+        with self.assertRaisesRegex(ValueError, "leeway must be representable"):
+            verify_token(
+                token=make_token(),
+                issuer=ISSUER,
+                client_id=CLIENT_ID,
+                leeway=10**1000,
+            )
+
+        self.mock_requests_get.assert_not_called()
+        self.mock_get_signing_key.assert_not_called()
 
     def test_invalid_audience_error(self):
         wrong_audience_token = make_token(aud="wrong-client-id")

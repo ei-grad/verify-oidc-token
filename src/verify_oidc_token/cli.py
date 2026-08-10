@@ -1,12 +1,23 @@
 import argparse
 import json
 import logging
+import math
 import sys
 
 import jwt
 from jwt.exceptions import InvalidTokenError
 
 from . import UNSAFE_FROM_TOKEN, verify_token
+
+
+def _non_negative_seconds(value: str) -> float:
+    try:
+        seconds = float(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError("must be a number of seconds") from e
+    if not math.isfinite(seconds) or seconds < 0:
+        raise argparse.ArgumentTypeError("must be a finite, non-negative number of seconds")
+    return seconds
 
 
 def main():
@@ -38,6 +49,13 @@ def main():
         action="store_true",
         help="Include the decoded JWT header alongside the verified claims.",
     )
+    parser.add_argument(
+        "--leeway",
+        type=_non_negative_seconds,
+        default=0.0,
+        metavar="SECONDS",
+        help="Allow this many seconds of clock skew in temporal claim validation (default: 0).",
+    )
 
     args = parser.parse_args()
 
@@ -63,7 +81,7 @@ def main():
     client_id = args.client_id if args.client_id else UNSAFE_FROM_TOKEN
 
     try:
-        claims = verify_token(token, issuer, client_id)
+        claims = verify_token(token, issuer, client_id, leeway=args.leeway)
         output = (
             {"header": jwt.get_unverified_header(token), "claims": claims}
             if args.with_header

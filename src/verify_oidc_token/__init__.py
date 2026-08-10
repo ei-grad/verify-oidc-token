@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Union
 
 import jwt
@@ -54,6 +55,8 @@ def verify_token(
     token: str,
     issuer: Union[str, _UnsafeFromToken],
     client_id: Union[str, _UnsafeFromToken],
+    *,
+    leeway: float = 0.0,
 ) -> dict:
     """
     Verifies an OpenID Connect (OIDC) ID Token.
@@ -78,7 +81,8 @@ def verify_token(
 
     6. Verifies the token's signature and decodes the token, accepting only asymmetric signing
        algorithms announced by the provider and requiring the ``exp``, ``iat``, ``iss``, ``sub``
-       and ``aud`` claims to be present.
+       and ``aud`` claims to be present. The optional leeway applies only to temporal claim
+       validation.
 
     This verifier is intentionally limited to OIDC ID Tokens. JWTs explicitly typed as OAuth 2.0
     access tokens are rejected. With an explicit ``client_id``, a multi-audience ID Token is
@@ -89,8 +93,12 @@ def verify_token(
     :param issuer: Expected OIDC issuer, or :data:`UNSAFE_FROM_TOKEN`.
     :param client_id: Expected OIDC client ID (the ID Token audience), or
                       :data:`UNSAFE_FROM_TOKEN`.
+    :param leeway: Non-negative, finite number of seconds representable as a float, allowed when
+                   PyJWT validates the ``exp``, ``nbf`` and ``iat`` claims. Defaults to zero.
     :return: Decoded ID Token claims as a dictionary.
-    :raises TypeError: If issuer or client_id is neither a string nor UNSAFE_FROM_TOKEN.
+    :raises TypeError: If issuer or client_id is neither a string nor UNSAFE_FROM_TOKEN, or if
+                       leeway is not a number.
+    :raises ValueError: If leeway is negative, not finite or not representable as a float.
     :raises jwt.InvalidTokenError: If the token is invalid or fails verification.
     """
 
@@ -98,6 +106,16 @@ def verify_token(
         raise TypeError("issuer must be a str or the UNSAFE_FROM_TOKEN sentinel")
     if not isinstance(client_id, str) and client_id is not UNSAFE_FROM_TOKEN:
         raise TypeError("client_id must be a str or the UNSAFE_FROM_TOKEN sentinel")
+    if isinstance(leeway, bool) or not isinstance(leeway, (int, float)):
+        raise TypeError("leeway must be a number of seconds")
+    try:
+        normalized_leeway = float(leeway)
+    except OverflowError as e:
+        raise ValueError("leeway must be representable as a finite float") from e
+    if not math.isfinite(normalized_leeway):
+        raise ValueError("leeway must be finite")
+    if normalized_leeway < 0:
+        raise ValueError("leeway must be non-negative")
 
     unverified_header = jwt.get_unverified_header(token)
     token_type = unverified_header.get("typ")
@@ -193,6 +211,7 @@ def verify_token(
             algorithms=algorithms,
             audience=client_id,
             issuer=issuer,
+            leeway=normalized_leeway,
             options={"require": ["exp", "iat", "iss", "sub", "aud"]},
         )
     except InvalidTokenError:
