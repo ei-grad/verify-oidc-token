@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 - Added a `--with-header` CLI flag that includes the decoded JWT header alongside the verified
   claims.
 
+### Changed
+- Removed the obsolete RFC compliance notice and beta development-status classifier.
+
 ## [0.3.0] - 2026-07-07
 ### Security
 - **Breaking**: `verify_token` now requires explicit `issuer` and `client_id` arguments. The

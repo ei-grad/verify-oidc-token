@@ -19,7 +19,6 @@ dependencies = [
     "cryptography",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Topic :: Security",
     "Topic :: Security :: Cryptography",
