@@ -11,6 +11,14 @@ Install via PyPI:
 pip install verify-oidc-token
 ```
 
+Or run the CLI without installing it:
+
+```bash
+echo "<ID_TOKEN>" | uvx verify-oidc-token \
+  --issuer https://example-issuer.com \
+  --client-id <CLIENT_ID>
+```
+
 Or, install from the source repository:
 
 ```bash
