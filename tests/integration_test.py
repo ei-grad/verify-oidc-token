@@ -1,12 +1,19 @@
 import json
+import os
+import ssl
 import subprocess
+import tempfile
 import threading
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import jwt
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from jwt.utils import base64url_encode
 
 from verify_oidc_token import verify_token
@@ -61,10 +68,45 @@ class OIDCServerHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
 
-# Port 0 lets the OS pick a free port; binding happens in the HTTPServer constructor,
-# so the server is ready to accept connections before the tests start.
+# The verifier requires HTTPS for discovery and JWKS. Trust a short-lived localhost
+# certificate only within this integration-test process and its CLI subprocesses.
+_tls_directory = tempfile.TemporaryDirectory()
+_tls_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_tls_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+_now = datetime.now(timezone.utc)
+_tls_certificate = (
+    x509.CertificateBuilder()
+    .subject_name(_tls_name)
+    .issuer_name(_tls_name)
+    .public_key(_tls_key.public_key())
+    .serial_number(x509.random_serial_number())
+    .not_valid_before(_now - timedelta(minutes=1))
+    .not_valid_after(_now + timedelta(hours=1))
+    .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+    .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+    .sign(_tls_key, hashes.SHA256())
+)
+_certificate_file = os.path.join(_tls_directory.name, "localhost.pem")
+_key_file = os.path.join(_tls_directory.name, "localhost-key.pem")
+with open(_certificate_file, "wb") as certificate_handle:
+    certificate_handle.write(_tls_certificate.public_bytes(serialization.Encoding.PEM))
+with open(_key_file, "wb") as key_handle:
+    key_handle.write(
+        _tls_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+
+# Port 0 lets the OS pick a free port; binding happens in the HTTPServer constructor.
 _server = HTTPServer(("localhost", 0), OIDCServerHandler)
-ISSUER = f"http://localhost:{_server.server_address[1]}"
+_tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+_tls_context.load_cert_chain(_certificate_file, _key_file)
+_server.socket = _tls_context.wrap_socket(_server.socket, server_side=True)
+ISSUER = f"https://localhost:{_server.server_address[1]}"
+_original_requests_ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE")
+os.environ["REQUESTS_CA_BUNDLE"] = _certificate_file
 threading.Thread(target=_server.serve_forever, daemon=True).start()
 
 
@@ -84,6 +126,16 @@ class IntegrationTestVerifyToken(unittest.TestCase):
             algorithm="RS256",
             headers={"kid": kid},
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        _server.shutdown()
+        _server.server_close()
+        if _original_requests_ca_bundle is None:
+            os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        else:
+            os.environ["REQUESTS_CA_BUNDLE"] = _original_requests_ca_bundle
+        _tls_directory.cleanup()
 
     def test_verify_token_success(self):
         # Test successful verification of a valid token

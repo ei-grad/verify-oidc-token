@@ -7,6 +7,22 @@ All notable changes to this project will be documented in this file.
 - Added an optional library `leeway` argument and CLI `--leeway` option for a finite,
   float-representable, non-negative clock-skew allowance during temporal claim validation. The
   default remains zero.
+- Added explicit trusted-additional-audience configuration through the library
+  `trusted_audiences` argument and repeatable CLI `--trusted-audience` option.
+- Added a reusable `OIDCVerifier` API that caches validated discovery metadata and PyJWT's JWKS
+  client with a configurable TTL.
+
+### Security
+- Additional ID Token audiences are now rejected by default. Permitted multi-audience tokens must
+  have an `azp` claim equal to the expected client ID, and a present `azp` is always type-checked
+  and matched.
+- OIDC issuer and JWKS URLs must use HTTPS with a valid host and no user information. Redirects are
+  refused, and discovery and JWKS response bodies are capped at 1 MiB.
+
+### Changed
+- Explicit issuer/client verification no longer decodes the unverified token payload. Unsafe mode
+  continues to verify signatures but now documents that a token-derived issuer selects the HTTPS
+  discovery and JWKS destinations.
 
 ## [0.3.1] - 2026-08-10
 ### Added

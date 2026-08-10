@@ -106,6 +106,60 @@ class TestCli(unittest.TestCase):
             "tok", UNSAFE_FROM_TOKEN, UNSAFE_FROM_TOKEN, leeway=12.5
         )
 
+    def test_trusted_audiences_forwarded(self):
+        with patch("verify_oidc_token.cli.verify_token", return_value={}) as mock_verify:
+            exit_code, _, errors = self.run_cli(
+                [
+                    "--issuer",
+                    "https://example.com",
+                    "--client-id",
+                    "cid",
+                    "--trusted-audience",
+                    "api-a",
+                    "--trusted-audience",
+                    "api-b",
+                ],
+                stdin_text="tok",
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(errors, "")
+        mock_verify.assert_called_once_with(
+            "tok",
+            "https://example.com",
+            "cid",
+            leeway=0.0,
+            trusted_audiences=["api-a", "api-b"],
+        )
+
+    def test_empty_trusted_audience_is_an_invocation_error(self):
+        with patch("verify_oidc_token.cli.verify_token") as mock_verify:
+            exit_code, output, errors = self.run_cli(
+                [
+                    "--issuer",
+                    "https://example.com",
+                    "--client-id",
+                    "cid",
+                    "--trusted-audience",
+                    "",
+                ],
+                stdin_text="tok",
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(output, "")
+        self.assertIn("--trusted-audience", errors)
+        self.assertIn("non-empty", errors)
+        mock_verify.assert_not_called()
+
+    def test_unsafe_help_states_signature_verification_remains_enabled(self):
+        exit_code, output, _ = self.run_cli(["--help"])
+
+        self.assertEqual(exit_code, 0)
+        normalized_output = " ".join(output.split())
+        self.assertIn("Signature verification and all other token validation", normalized_output)
+        self.assertIn("HTTPS discovery and JWKS hosts", normalized_output)
+
     def test_negative_leeway_rejected(self):
         with patch("verify_oidc_token.cli.verify_token") as mock_verify:
             exit_code, output, errors = self.run_cli(

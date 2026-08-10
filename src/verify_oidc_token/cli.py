@@ -20,6 +20,12 @@ def _non_negative_seconds(value: str) -> float:
     return seconds
 
 
+def _non_empty_audience(value: str) -> str:
+    if not value:
+        raise argparse.ArgumentTypeError("must be a non-empty string")
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser(description="Verify an OpenID Connect ID Token.")
     parser.add_argument(
@@ -38,8 +44,9 @@ def main():
         "--unsafe",
         action="store_true",
         help="Take a missing expected issuer or client audience from the unverified ID Token"
-        " payload, making those checks self-referential. Signature verification and other token"
-        " validation still run. Debugging only.",
+        " payload, making those checks self-referential. A token-derived issuer controls the"
+        " HTTPS discovery and JWKS hosts. Signature verification and all other token validation"
+        " still run. Debugging only.",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging for debugging."
@@ -55,6 +62,15 @@ def main():
         default=0.0,
         metavar="SECONDS",
         help="Allow this many seconds of clock skew in temporal claim validation (default: 0).",
+    )
+    parser.add_argument(
+        "--trusted-audience",
+        action="append",
+        default=[],
+        type=_non_empty_audience,
+        metavar="AUDIENCE",
+        help="Trust an additional audience in a multi-audience token. May be repeated; such a"
+        " token must also have azp equal to --client-id.",
     )
 
     args = parser.parse_args()
@@ -81,7 +97,16 @@ def main():
     client_id = args.client_id if args.client_id else UNSAFE_FROM_TOKEN
 
     try:
-        claims = verify_token(token, issuer, client_id, leeway=args.leeway)
+        if args.trusted_audience:
+            claims = verify_token(
+                token,
+                issuer,
+                client_id,
+                leeway=args.leeway,
+                trusted_audiences=args.trusted_audience,
+            )
+        else:
+            claims = verify_token(token, issuer, client_id, leeway=args.leeway)
         output = (
             {"header": jwt.get_unverified_header(token), "claims": claims}
             if args.with_header

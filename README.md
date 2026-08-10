@@ -54,9 +54,14 @@ verify-oidc-token --token-file /path/to/token.txt --issuer https://example-issue
   `--unsafe` is given; an empty value counts as missing.
 - `--client-id` : The expected OIDC client ID, which is matched against the ID Token `aud` claim.
   Required unless `--unsafe` is given; an empty value counts as missing.
+- `--trusted-audience AUDIENCE`: Explicitly trust an additional `aud` value. May be repeated.
+  Multi-audience tokens must also have an `azp` claim equal to `--client-id`. Additional audiences
+  are rejected by default.
 - `--unsafe` : Take a missing expected issuer or client audience from the unverified ID Token
-  payload, making those two checks self-referential. Signature verification and the other token
-  validation still run. Debugging only.
+  payload, making those two checks self-referential. Signature verification is never disabled,
+  and all other token validation still runs. When the issuer is taken from the token, that
+  untrusted value controls which HTTPS hosts receive discovery and JWKS requests. Debugging only;
+  HTTPS does not prevent access to an attacker-selected or internal HTTPS host.
 - `--leeway SECONDS`: Allow a finite, non-negative number of seconds of clock skew when validating
   the `exp`, `nbf`, and `iat` claims. The default is `0`; signature, issuer, and audience validation
   are unaffected.
@@ -124,7 +129,7 @@ For an invalid token:
 
 ## Library Usage
 
-Use this tool as a library in Python code:
+For a one-shot verification, use `verify_token`:
 
 ```python
 from verify_oidc_token import verify_token
@@ -141,12 +146,35 @@ except jwt.InvalidTokenError as e:
     print({"error": str(e)})
 ```
 
+Long-running applications should retain an `OIDCVerifier` instance. It caches the validated
+discovery metadata and PyJWT JWKS client for five minutes by default, avoiding discovery and JWKS
+network requests on every verification while still allowing key rotation:
+
+```python
+from verify_oidc_token import OIDCVerifier
+
+verifier = OIDCVerifier(
+    "https://accounts.google.com",
+    "my-client-id",
+    leeway=30,
+)
+
+claims = verifier.verify(token)
+```
+
+Verifier trust settings and cache TTL are read-only after construction; create separate verifier
+instances for different issuer/client trust configurations. The package does not use a
+module-global cross-issuer cache. Discovery and JWKS requests require HTTPS, refuse redirects, and
+cap each response body at 1 MiB.
+
 ### Library API:
 
-- `verify_token(token: str, issuer, client_id, *, leeway: float = 0.0) -> dict`
+- `verify_token(token: str, issuer, client_id, *, leeway: float = 0.0,
+  trusted_audiences=()) -> dict`
    Verifies an OIDC ID Token, ensuring it matches the expected issuer and OIDC client audience,
    and returns the claims if valid. Validation requires the `iss`, `sub`, `aud`, `exp`, and `iat`
-   claims. OAuth 2.0 access tokens are not supported.
+   claims. Additional audiences are rejected unless explicitly trusted; a multi-audience token
+   must also have `azp` equal to `client_id`. OAuth 2.0 access tokens are not supported.
 
    - **Parameters**:
      - `token` (str): The encoded OIDC ID Token to verify.
@@ -156,6 +184,8 @@ except jwt.InvalidTokenError as e:
      - `leeway` (float): Finite, non-negative number of seconds representable as a Python `float`,
        allowed when validating `exp`, `nbf`, and `iat`. Defaults to `0.0`; signature, issuer, and
        audience validation are unaffected.
+     - `trusted_audiences` (iterable of str): Explicitly trusted additional `aud` values. Defaults
+       to none.
    - **Returns**: Dictionary with the decoded claims.
    - **Raises**: `jwt.InvalidTokenError` if validation fails, `TypeError` if an argument has an
      invalid type, and `ValueError` if `leeway` is negative, not finite, or not representable as a
@@ -163,9 +193,17 @@ except jwt.InvalidTokenError as e:
 
    Both `issuer` and `client_id` are required. Passing the `UNSAFE_FROM_TOKEN` sentinel
    (importable from `verify_oidc_token`) opts into deriving only that expected value from the
-   unverified ID Token payload. Signature verification and the other token validation still run,
-   but the corresponding issuer or audience check becomes self-referential. Use this only for
-   debugging, or when the caller applies its own trust decision to the returned claims.
+   unverified ID Token payload. Signature verification is never disabled and the other token
+   validation still runs, but the corresponding issuer or audience check becomes self-referential.
+   A token-derived issuer also controls the destination of HTTPS discovery and JWKS requests. Use
+   this only for debugging, or when the caller applies its own trust and network-destination
+   decisions to the returned claims.
+
+- `OIDCVerifier(issuer: str, client_id: str, *, leeway: float = 0.0,
+  trusted_audiences=(), cache_ttl: float = 300.0)`
+  Creates a reusable verifier for one explicit issuer/client configuration. `verify(token)` returns
+  verified claims using discovery metadata and JWKS cached for the configured positive TTL.
+  `UNSAFE_FROM_TOKEN` is intentionally not accepted by this stateful API.
 
 ## Development
 
