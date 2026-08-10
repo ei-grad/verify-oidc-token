@@ -51,18 +51,17 @@ source-include = ["tests/**", "CHANGELOG.md", "tox.ini"]
 
 [dependency-groups]
 dev = [
-    "black",
-    "flake8",
-    "isort",
     "mypy",
     "pytest",
     "pytest-cov>=7.1.0",
+    "ruff>=0.16.1",
     "types-requests",
 ]
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-target-version = ["py39", "py310", "py311", "py312", "py313", "py314"]
+target-version = "py39"
 
-[tool.isort]
-profile = "black"
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E111", "E114", "E117", "W191"]

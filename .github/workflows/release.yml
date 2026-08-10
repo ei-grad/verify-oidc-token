@@ -42,12 +42,10 @@ jobs:
       with:
         persist-credentials: false
     - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-    - name: flake8
-      run: uv run flake8 src tests
-    - name: black
-      run: uv run black --check src tests
-    - name: isort
-      run: uv run isort --check-only src tests
+    - name: Ruff check
+      run: uv run ruff check src tests
+    - name: Ruff format
+      run: uv run ruff format --check src tests
     - name: mypy
       run: uv run mypy src
 

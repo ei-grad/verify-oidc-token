@@ -163,9 +163,8 @@ uv run -m pytest
 Linters and type checking (installed as the `dev` dependency group):
 
 ```bash
-uv run flake8 src tests
-uv run black --check src tests
-uv run isort --check-only src tests
+uv run ruff check src tests
+uv run ruff format --check src tests
 uv run mypy src
 ```
 
