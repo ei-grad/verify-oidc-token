@@ -993,7 +993,7 @@ wheels = [
 
 [[package]]
 name = "verify-oidc-token"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography", marker = "python_full_version >= '3.10'" },

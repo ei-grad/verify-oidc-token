@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.1] - 2026-08-10
 ### Added
 - Added a `--with-header` CLI flag that includes the decoded JWT header alongside the verified
   claims.
